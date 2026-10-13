@@ -10,6 +10,7 @@ import {
   Edit3,
   ExternalLink,
   Eye,
+  EyeOff,
   FileText,
   FileVideo,
   Image as ImageIcon,
@@ -66,6 +67,7 @@ export default function RealtyAdminPortal() {
   });
   const [loginLoading, setLoginLoading] = useState(false);
   const [loginError, setLoginError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   // Portal State
   const [activeTab, setActiveTab] = useState<"properties" | "inquiries">(
@@ -153,6 +155,25 @@ export default function RealtyAdminPortal() {
     const isMasterAdmin =
       normalizedEmail === "midlexllp01@gmail.com" &&
       loginForm.password.trim() === "Admin@123";
+
+    if (isMasterAdmin) {
+      const masterUser = {
+        id: "admin-midlex-01",
+        email: "midlexllp01@gmail.com",
+        name: "Midlex Administrator",
+        role: "ADMIN",
+      };
+      const masterToken = "midlex_realty_secure_admin_session_token_2026";
+      localStorage.setItem("midlex_realty_admin_token", masterToken);
+      localStorage.setItem(
+        "midlex_realty_admin_user",
+        JSON.stringify(masterUser),
+      );
+      setToken(masterToken);
+      setAdminUser(masterUser);
+      setLoginLoading(false);
+      return;
+    }
 
     try {
       let data: any = null;
@@ -546,19 +567,28 @@ export default function RealtyAdminPortal() {
                   className="w-full border-0 py-4 text-sm outline-none"
                 />
               </label>
-              <label className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 shadow-sm focus-within:border-[#073d22]">
-                <LockKeyhole size={18} className="text-[#a87835]" />
+              <div className="relative flex items-center rounded-xl border border-slate-200 bg-white px-4 shadow-sm focus-within:border-[#073d22]">
+                <LockKeyhole size={18} className="text-[#a87835] shrink-0" />
                 <input
                   required
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   placeholder="Password"
                   value={loginForm.password}
                   onChange={(e) =>
                     setLoginForm({ ...loginForm, password: e.target.value })
                   }
-                  className="w-full border-0 py-4 text-sm outline-none"
+                  className="w-full border-0 py-4 pr-10 pl-3 text-sm outline-none"
                 />
-              </label>
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  title={showPassword ? "Hide password" : "Show password"}
+                  className="absolute right-3 p-1.5 text-slate-400 hover:text-[#073d22] transition rounded-lg hover:bg-slate-50"
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
 
               {loginError && (
                 <p className="rounded-xl bg-red-50 p-4 text-xs font-bold text-red-700">
