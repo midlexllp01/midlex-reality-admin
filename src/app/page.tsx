@@ -4,11 +4,14 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
+  BookOpen,
   Building2,
   Camera,
   Check,
   Edit3,
   ExternalLink,
+  HelpCircle,
+  Info,
   Eye,
   EyeOff,
   FileText,
@@ -90,6 +93,8 @@ export default function RealtyAdminPortal() {
   const [bulkOpen, setBulkOpen] = useState(false);
   const [bulkText, setBulkText] = useState("");
   const [uploadNotice, setUploadNotice] = useState("");
+  const [guideModalOpen, setGuideModalOpen] = useState(false);
+  const [guideTab, setGuideTab] = useState<"images" | "videos">("images");
 
   // Check auth on load
   useEffect(() => {
@@ -645,6 +650,13 @@ export default function RealtyAdminPortal() {
               Live Marketplace <ExternalLink size={13} />
             </a>
             <button
+              onClick={() => setGuideModalOpen(true)}
+              className="flex items-center gap-1.5 rounded-xl bg-amber-50 border border-amber-200 px-3.5 py-2 text-xs font-black text-amber-900 hover:bg-amber-100 transition shadow-xs"
+              title="Instructions for uploading photos and videos"
+            >
+              <BookOpen size={14} className="text-[#a87835]" /> Media Guide
+            </button>
+            <button
               onClick={loadData}
               className="rounded-xl border border-emerald-950/15 p-2.5 text-slate-700 hover:bg-slate-50 transition"
               title="Refresh Catalogue"
@@ -1058,6 +1070,19 @@ export default function RealtyAdminPortal() {
 
                 {mediaTab === "link" ? (
                   <div className="space-y-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-amber-50/90 border border-amber-200/80 p-2.5 text-xs text-amber-950">
+                      <div className="flex items-center gap-1.5 font-medium">
+                        <Info size={14} className="text-[#a87835] shrink-0" />
+                        <span>Where to get direct image & video links?</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setGuideModalOpen(true)}
+                        className="font-black text-[#073d22] underline hover:text-[#a87835] transition"
+                      >
+                        Open Media Guide & Sites ↗
+                      </button>
+                    </div>
                     <div>
                       <label className="text-xs font-bold text-slate-700 block mb-1">
                         Add Image Link
@@ -1282,6 +1307,300 @@ export default function RealtyAdminPortal() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MEDIA UPLOAD GUIDE MODAL */}
+      {guideModalOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+          <div className="w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-3xl bg-white shadow-2xl border border-slate-200">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-slate-100 p-6 sticky top-0 bg-white/95 backdrop-blur-xs z-10">
+              <div className="flex items-center gap-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-50 text-[#a87835] border border-amber-200">
+                  <BookOpen size={22} />
+                </div>
+                <div>
+                  <h3 className="text-xl font-black text-[#073d22]">
+                    Property Media Upload Guide
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Where to upload photos & video tours to get direct links for Midlex Realty
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setGuideModalOpen(false)}
+                className="rounded-xl p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Content Tabs */}
+            <div className="p-6 space-y-6">
+              {/* Tab Selector */}
+              <div className="flex rounded-2xl bg-slate-100 p-1.5 text-xs font-bold">
+                <button
+                  type="button"
+                  onClick={() => setGuideTab("images")}
+                  className={`flex-1 flex items-center justify-center gap-2 rounded-xl py-3 transition ${
+                    guideTab === "images"
+                      ? "bg-white text-[#073d22] shadow-sm font-black"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  <Camera size={16} /> 1. Uploading Images (Photos)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setGuideTab("videos")}
+                  className={`flex-1 flex items-center justify-center gap-2 rounded-xl py-3 transition ${
+                    guideTab === "videos"
+                      ? "bg-white text-[#073d22] shadow-sm font-black"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  <Video size={16} /> 2. Uploading Videos (Virtual Tours)
+                </button>
+              </div>
+
+              {/* TAB 1: IMAGES */}
+              {guideTab === "images" && (
+                <div className="space-y-6">
+                  <div className="rounded-2xl bg-emerald-50/70 border border-emerald-200/70 p-4 text-xs leading-relaxed text-emerald-950">
+                    <span className="font-black text-emerald-900 block mb-1">
+                      💡 Important Requirement:
+                    </span>
+                    Your link must be a <strong>Direct Image Link</strong> ending in <code className="bg-emerald-100 px-1 py-0.5 rounded text-emerald-900">.jpg</code>, <code className="bg-emerald-100 px-1 py-0.5 rounded text-emerald-900">.jpeg</code>, <code className="bg-emerald-100 px-1 py-0.5 rounded text-emerald-900">.png</code>, or <code className="bg-emerald-100 px-1 py-0.5 rounded text-emerald-900">.webp</code>.
+                  </div>
+
+                  <div className="grid gap-4 sm:grid-cols-3">
+                    {/* Option A */}
+                    <div className="rounded-2xl border-2 border-[#073d22]/20 bg-white p-4 shadow-xs hover:border-[#073d22] transition flex flex-col justify-between">
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-[10px] font-black uppercase tracking-wider text-[#a87835] bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                            Recommended
+                          </span>
+                          <span className="text-xs font-bold text-emerald-700">100% Free</span>
+                        </div>
+                        <h4 className="text-base font-black text-[#073d22]">Postimages</h4>
+                        <p className="text-xs text-slate-500 mt-1 mb-3">
+                          Fastest and easiest. No signup or account required.
+                        </p>
+                        <ol className="text-xs text-slate-700 space-y-1.5 list-decimal list-inside">
+                          <li>Click &quot;Choose images&quot;</li>
+                          <li>Upload your photos</li>
+                          <li>Copy <strong>&quot;Direct link&quot;</strong></li>
+                          <li>Paste into Midlex Admin</li>
+                        </ol>
+                      </div>
+                      <a
+                        href="https://postimages.org"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-4 flex items-center justify-center gap-1.5 w-full rounded-xl bg-[#073d22] py-2.5 text-xs font-black text-white hover:bg-[#094e2b] transition"
+                      >
+                        Open Postimages <ExternalLink size={13} />
+                      </a>
+                    </div>
+
+                    {/* Option B */}
+                    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs hover:border-[#073d22] transition flex flex-col justify-between">
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+                            Fast Host
+                          </span>
+                          <span className="text-xs font-bold text-emerald-700">Free</span>
+                        </div>
+                        <h4 className="text-base font-black text-slate-900">ImgBB</h4>
+                        <p className="text-xs text-slate-500 mt-1 mb-3">
+                          Simple image hosting. No signup needed.
+                        </p>
+                        <ol className="text-xs text-slate-700 space-y-1.5 list-decimal list-inside">
+                          <li>Click &quot;Start Uploading&quot;</li>
+                          <li>Select &quot;Don&apos;t autodelete&quot;</li>
+                          <li>Select &quot;Direct links&quot;</li>
+                          <li>Copy URL &amp; paste</li>
+                        </ol>
+                      </div>
+                      <a
+                        href="https://imgbb.com"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-4 flex items-center justify-center gap-1.5 w-full rounded-xl bg-slate-900 py-2.5 text-xs font-black text-white hover:bg-slate-800 transition"
+                      >
+                        Open ImgBB <ExternalLink size={13} />
+                      </a>
+                    </div>
+
+                    {/* Option C */}
+                    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs hover:border-[#073d22] transition flex flex-col justify-between">
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-[10px] font-black uppercase tracking-wider text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
+                            Professional
+                          </span>
+                          <span className="text-xs font-bold text-slate-600">25GB Free</span>
+                        </div>
+                        <h4 className="text-base font-black text-slate-900">Cloudinary</h4>
+                        <p className="text-xs text-slate-500 mt-1 mb-3">
+                          Enterprise real estate CDN with fast worldwide delivery.
+                        </p>
+                        <ol className="text-xs text-slate-700 space-y-1.5 list-decimal list-inside">
+                          <li>Create free account</li>
+                          <li>Upload photos/videos</li>
+                          <li>Copy secure delivery URL</li>
+                          <li>Paste into Admin</li>
+                        </ol>
+                      </div>
+                      <a
+                        href="https://cloudinary.com"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-4 flex items-center justify-center gap-1.5 w-full rounded-xl bg-slate-900 py-2.5 text-xs font-black text-white hover:bg-slate-800 transition"
+                      >
+                        Open Cloudinary <ExternalLink size={13} />
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 2: VIDEOS */}
+              {guideTab === "videos" && (
+                <div className="space-y-6">
+                  <div className="rounded-2xl bg-amber-50/70 border border-amber-200/70 p-4 text-xs leading-relaxed text-amber-950">
+                    <span className="font-black text-amber-900 block mb-1">
+                      🎬 Supported Video Types:
+                    </span>
+                    The built-in Midlex video player natively embeds <strong>YouTube</strong>, <strong>Vimeo</strong>, and direct <strong>.mp4</strong> links directly into the property page.
+                  </div>
+
+                  <div className="grid gap-4 sm:grid-cols-3">
+                    {/* Option A: YouTube */}
+                    <div className="rounded-2xl border-2 border-[#073d22]/20 bg-white p-4 shadow-xs hover:border-[#073d22] transition flex flex-col justify-between">
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-[10px] font-black uppercase tracking-wider text-[#a87835] bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                            Recommended
+                          </span>
+                          <span className="text-xs font-bold text-emerald-700">Free &amp; 4K</span>
+                        </div>
+                        <h4 className="text-base font-black text-[#073d22]">YouTube (Unlisted)</h4>
+                        <p className="text-xs text-slate-500 mt-1 mb-3">
+                          Unlimited storage, lightning-fast 4K streaming.
+                        </p>
+                        <ol className="text-xs text-slate-700 space-y-1.5 list-decimal list-inside">
+                          <li>Upload to your YouTube channel</li>
+                          <li>Set visibility to <strong>Unlisted</strong></li>
+                          <li>Copy the video share link</li>
+                          <li>Paste into Video Tour URL</li>
+                        </ol>
+                      </div>
+                      <a
+                        href="https://youtube.com"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-4 flex items-center justify-center gap-1.5 w-full rounded-xl bg-red-600 py-2.5 text-xs font-black text-white hover:bg-red-700 transition"
+                      >
+                        Open YouTube <ExternalLink size={13} />
+                      </a>
+                    </div>
+
+                    {/* Option B: Vimeo */}
+                    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs hover:border-[#073d22] transition flex flex-col justify-between">
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-[10px] font-black uppercase tracking-wider text-sky-600 bg-sky-50 px-2 py-0.5 rounded-full">
+                            Ad-Free
+                          </span>
+                          <span className="text-xs font-bold text-slate-600">Free Tier</span>
+                        </div>
+                        <h4 className="text-base font-black text-slate-900">Vimeo</h4>
+                        <p className="text-xs text-slate-500 mt-1 mb-3">
+                          Clean, professional player without external ads.
+                        </p>
+                        <ol className="text-xs text-slate-700 space-y-1.5 list-decimal list-inside">
+                          <li>Upload to Vimeo</li>
+                          <li>Copy the video URL</li>
+                          <li>Paste into Video Tour URL</li>
+                        </ol>
+                      </div>
+                      <a
+                        href="https://vimeo.com"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-4 flex items-center justify-center gap-1.5 w-full rounded-xl bg-sky-600 py-2.5 text-xs font-black text-white hover:bg-sky-700 transition"
+                      >
+                        Open Vimeo <ExternalLink size={13} />
+                      </a>
+                    </div>
+
+                    {/* Option C: Streamable */}
+                    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs hover:border-[#073d22] transition flex flex-col justify-between">
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+                            Direct Link
+                          </span>
+                          <span className="text-xs font-bold text-emerald-700">Free</span>
+                        </div>
+                        <h4 className="text-base font-black text-slate-900">Streamable</h4>
+                        <p className="text-xs text-slate-500 mt-1 mb-3">
+                          Quick drag-and-drop short tour videos.
+                        </p>
+                        <ol className="text-xs text-slate-700 space-y-1.5 list-decimal list-inside">
+                          <li>Upload tour clip</li>
+                          <li>Copy direct link</li>
+                          <li>Paste into Video Tour URL</li>
+                        </ol>
+                      </div>
+                      <a
+                        href="https://streamable.com"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-4 flex items-center justify-center gap-1.5 w-full rounded-xl bg-slate-900 py-2.5 text-xs font-black text-white hover:bg-slate-800 transition"
+                      >
+                        Open Streamable <ExternalLink size={13} />
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Quick Summary Card */}
+              <div className="rounded-2xl bg-slate-900 text-white p-5">
+                <h4 className="text-xs font-black uppercase tracking-wider text-[#ddb849] mb-2 flex items-center gap-2">
+                  <Check size={16} /> Quick Summary Checklist
+                </h4>
+                <div className="grid gap-2 text-xs text-slate-200 sm:grid-cols-2">
+                  <div className="flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full bg-[#ddb849]" />
+                    <span><strong>Photos</strong>: Go to <strong>postimages.org</strong> → copy <strong>Direct Link</strong></span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full bg-[#ddb849]" />
+                    <span><strong>Videos</strong>: Upload to <strong>YouTube</strong> as <strong>Unlisted</strong> → copy share link</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="border-t border-slate-100 p-4 bg-slate-50 rounded-b-3xl flex justify-end">
+              <button
+                type="button"
+                onClick={() => setGuideModalOpen(false)}
+                className="rounded-xl bg-[#073d22] px-6 py-2.5 text-xs font-black text-white hover:bg-[#094e2b] transition"
+              >
+                Close Guide
+              </button>
+            </div>
           </div>
         </div>
       )}
