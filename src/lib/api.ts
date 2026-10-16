@@ -1,7 +1,7 @@
 import { PropertyListing, Inquiry } from "./types";
 
 export const API_URL = (
-  process.env.NEXT_PUBLIC_API_URL || "https://midlex-reality.onrender.com"
+  process.env.NEXT_PUBLIC_API_URL || "https://midlex-realty.onrender.com"
 ).replace(/\/$/, "");
 
 export function formatPrice(price: number) {

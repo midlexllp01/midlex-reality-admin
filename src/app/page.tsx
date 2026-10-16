@@ -59,6 +59,78 @@ const emptyForm = {
   featured: false,
 };
 
+// Helper to clean and convert pasted image links to direct image URLs
+function cleanImageUrl(rawUrl: string): string {
+  let url = rawUrl.trim();
+  if (!url) return "";
+
+  // Imgur page link -> direct image (e.g., https://imgur.com/abc -> https://i.imgur.com/abc.jpg)
+  const imgurMatch = url.match(/^https?:\/\/(?:www\.)?imgur\.com\/([a-zA-Z0-9]+)$/);
+  if (imgurMatch && imgurMatch[1]) {
+    return `https://i.imgur.com/${imgurMatch[1]}.jpg`;
+  }
+
+  // Google Drive share link -> direct view
+  const gdriveMatch = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+  if (gdriveMatch && gdriveMatch[1]) {
+    return `https://drive.google.com/uc?export=view&id=${gdriveMatch[1]}`;
+  }
+
+  // Dropbox share link -> raw image link
+  if (url.includes("dropbox.com")) {
+    return url.replace("?dl=0", "?raw=1").replace("&dl=0", "&raw=1");
+  }
+
+  return url;
+}
+
+// Client-side canvas compression for uploaded device images
+function compressImageFile(file: File): Promise<string> {
+  return new Promise((resolve) => {
+    if (file.type === "image/svg+xml" || file.size < 400 * 1024) {
+      const reader = new FileReader();
+      reader.onload = (e) => resolve((e.target?.result as string) || "");
+      reader.onerror = () => resolve("");
+      reader.readAsDataURL(file);
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = document.createElement("img");
+      img.onload = () => {
+        const MAX_DIMENSION = 1600;
+        let { width, height } = img;
+
+        if (width > MAX_DIMENSION || height > MAX_DIMENSION) {
+          if (width > height) {
+            height = Math.round((height * MAX_DIMENSION) / width);
+            width = MAX_DIMENSION;
+          } else {
+            width = Math.round((width * MAX_DIMENSION) / height);
+            height = MAX_DIMENSION;
+          }
+        }
+
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL("image/jpeg", 0.85));
+        } else {
+          resolve((e.target?.result as string) || "");
+        }
+      };
+      img.onerror = () => resolve((e.target?.result as string) || "");
+      img.src = e.target?.result as string;
+    };
+    reader.onerror = () => resolve("");
+    reader.readAsDataURL(file);
+  });
+}
+
 export default function RealtyAdminPortal() {
   const [token, setToken] = useState<string | null>(null);
   const [adminUser, setAdminUser] = useState<any>(null);
@@ -101,6 +173,15 @@ export default function RealtyAdminPortal() {
     const savedToken = localStorage.getItem("midlex_realty_admin_token");
     const savedUser = localStorage.getItem("midlex_realty_admin_user");
     if (savedToken) {
+      // Must be a valid JWT (3 parts separated by dots)
+      if (!savedToken.includes(".") || savedToken.split(".").length !== 3) {
+        localStorage.removeItem("midlex_realty_admin_token");
+        localStorage.removeItem("midlex_realty_admin_user");
+        setToken(null);
+        setAdminUser(null);
+        setLoading(false);
+        return;
+      }
       setToken(savedToken);
       if (savedUser) {
         try {
@@ -156,79 +237,36 @@ export default function RealtyAdminPortal() {
     setLoginLoading(true);
     setLoginError("");
 
-    const normalizedEmail = loginForm.email.trim().toLowerCase();
-    const isMasterAdmin =
-      normalizedEmail === "midlexllp01@gmail.com" &&
-      loginForm.password.trim() === "Admin@123";
-
-    if (isMasterAdmin) {
-      const masterUser = {
-        id: "admin-midlex-01",
-        email: "midlexllp01@gmail.com",
-        name: "Midlex Administrator",
-        role: "ADMIN",
-      };
-      const masterToken = "midlex_realty_secure_admin_session_token_2026";
-      localStorage.setItem("midlex_realty_admin_token", masterToken);
-      localStorage.setItem(
-        "midlex_realty_admin_user",
-        JSON.stringify(masterUser),
-      );
-      setToken(masterToken);
-      setAdminUser(masterUser);
-      setLoginLoading(false);
-      return;
-    }
-
     try {
-      let data: any = null;
-      try {
-        const response = await fetch(`${API_URL}/auth/login`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(loginForm),
-        });
-        if (response.ok) {
-          data = await response.json();
-        }
-      } catch (networkErr) {
-        console.warn("Backend auth unreachable, checking master admin:", networkErr);
+      const response = await fetch(`${API_URL}/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: loginForm.email.trim(),
+          password: loginForm.password.trim(),
+        }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(data.message || "Invalid administrator credentials");
       }
 
-      if (data && data.access_token) {
-        if (data.user?.role !== "ADMIN") {
-          throw new Error("This portal is restricted to Midlex administrators");
-        }
-        localStorage.setItem("midlex_realty_admin_token", data.access_token);
-        localStorage.setItem(
-          "midlex_realty_admin_user",
-          JSON.stringify(data.user),
-        );
-        setToken(data.access_token);
-        setAdminUser(data.user);
-        return;
+      if (!data || !data.access_token) {
+        throw new Error("Login failed: missing access token from server");
       }
 
-      if (isMasterAdmin) {
-        const fallbackUser = {
-          id: "admin-midlex-01",
-          email: "midlexllp01@gmail.com",
-          name: "Midlex Administrator",
-          role: "ADMIN",
-        };
-        const fallbackToken = "midlex_realty_secure_admin_session_token_2026";
-        localStorage.setItem("midlex_realty_admin_token", fallbackToken);
-        localStorage.setItem(
-          "midlex_realty_admin_user",
-          JSON.stringify(fallbackUser),
-        );
-        setToken(fallbackToken);
-        setAdminUser(fallbackUser);
-        return;
+      if (data.user?.role !== "ADMIN") {
+        throw new Error("This portal is restricted to Midlex administrators");
       }
 
-      throw new Error("Invalid administrator email or password");
+      localStorage.setItem("midlex_realty_admin_token", data.access_token);
+      localStorage.setItem("midlex_realty_admin_user", JSON.stringify(data.user));
+      setToken(data.access_token);
+      setAdminUser(data.user);
     } catch (err) {
+      console.error("Login error:", err);
       setLoginError(err instanceof Error ? err.message : "Sign in failed");
     } finally {
       setLoginLoading(false);
@@ -303,11 +341,11 @@ export default function RealtyAdminPortal() {
 
   // Media helper methods
   const handleAddImageUrl = () => {
-    const trimmed = newImageUrl.trim();
-    if (!trimmed) return;
+    const cleaned = cleanImageUrl(newImageUrl);
+    if (!cleaned) return;
     setForm((curr) => ({
       ...curr,
-      images: [...curr.images, trimmed],
+      images: [...curr.images, cleaned],
     }));
     setNewImageUrl("");
     setUploadNotice("Image link added");
@@ -327,7 +365,7 @@ export default function RealtyAdminPortal() {
   const handleBulkAddImages = () => {
     const urls = bulkText
       .split(/\r?\n|,/)
-      .map((item) => item.trim())
+      .map((item) => cleanImageUrl(item))
       .filter(Boolean);
     if (!urls.length) return;
     setForm((curr) => ({
@@ -340,26 +378,35 @@ export default function RealtyAdminPortal() {
     setTimeout(() => setUploadNotice(""), 3000);
   };
 
-  const handleDirectImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleDirectImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || !files.length) return;
 
-    Array.from(files).forEach((file) => {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const result = event.target?.result as string;
-        if (result) {
-          setForm((curr) => ({
-            ...curr,
-            images: [...curr.images, result],
-          }));
+    setUploadNotice("Optimizing and processing images...");
+    const compressedImages: string[] = [];
+
+    for (const file of Array.from(files)) {
+      try {
+        const compressed = await compressImageFile(file);
+        if (compressed) {
+          compressedImages.push(compressed);
         }
-      };
-      reader.readAsDataURL(file);
-    });
+      } catch (err) {
+        console.error("Image processing error:", err);
+      }
+    }
+
+    if (compressedImages.length > 0) {
+      setForm((curr) => ({
+        ...curr,
+        images: [...curr.images, ...compressedImages],
+      }));
+      setUploadNotice(`${compressedImages.length} image(s) uploaded successfully!`);
+    } else {
+      setUploadNotice("Could not process selected image files.");
+    }
     e.target.value = "";
-    setUploadNotice("Images uploaded and added to gallery");
-    setTimeout(() => setUploadNotice(""), 3000);
+    setTimeout(() => setUploadNotice(""), 3500);
   };
 
   const handleDirectVideoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -416,7 +463,15 @@ export default function RealtyAdminPortal() {
     e.preventDefault();
     if (!token) return handleLogout();
 
-    if (!form.images.length) {
+    // Auto-include any pending image link typed into the input
+    let currentImages = [...form.images];
+    const pendingUrl = cleanImageUrl(newImageUrl);
+    if (pendingUrl && !currentImages.includes(pendingUrl)) {
+      currentImages.push(pendingUrl);
+      setNewImageUrl("");
+    }
+
+    if (!currentImages.length) {
       setFormError("Please add at least one property image (via link or upload).");
       return;
     }
@@ -439,7 +494,7 @@ export default function RealtyAdminPortal() {
             bedrooms: Number(form.bedrooms),
             bathrooms: Number(form.bathrooms),
             sizeSqm: form.sizeSqm ? Number(form.sizeSqm) : null,
-            images: form.images.filter(Boolean),
+            images: currentImages.filter(Boolean),
             videoUrl: form.videoUrl?.trim() || null,
             features: form.features
               .split(/\r?\n|,/)
@@ -449,12 +504,15 @@ export default function RealtyAdminPortal() {
         },
       );
 
-      const data = await response.json();
+      const data = await response.json().catch(() => ({}));
       if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error("Your session has expired or is invalid. Please sign out and sign back in.");
+        }
         throw new Error(
           Array.isArray(data?.message)
             ? data.message.join(", ")
-            : data?.message || "Could not save listing",
+            : data?.message || `Server returned error (${response.status})`
         );
       }
 
@@ -761,10 +819,18 @@ export default function RealtyAdminPortal() {
                             <div className="flex items-center gap-3">
                               <img
                                 src={
-                                  item.images[0] ||
+                                  item.images?.[0] ||
                                   "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=400&q=80"
                                 }
-                                alt=""
+                                alt={item.title}
+                                onError={(e) => {
+                                  const target = e.currentTarget;
+                                  if (!target.dataset.fallback) {
+                                    target.dataset.fallback = "true";
+                                    target.src =
+                                      "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=400&q=80";
+                                  }
+                                }}
                                 className="h-14 w-20 rounded-xl object-cover border border-slate-200"
                               />
                               <div>
@@ -1215,7 +1281,15 @@ export default function RealtyAdminPortal() {
                         >
                           <img
                             src={url}
-                            alt=""
+                            alt={`Photo ${idx + 1}`}
+                            onError={(e) => {
+                              const target = e.currentTarget;
+                              if (!target.dataset.fallback) {
+                                target.dataset.fallback = "true";
+                                target.src =
+                                  "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=400&q=80";
+                              }
+                            }}
                             className="h-24 w-full object-cover"
                           />
                           {idx === 0 ? (
