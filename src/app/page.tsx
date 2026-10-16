@@ -70,7 +70,16 @@ const DEFAULT_ADMINS: AdminAccount[] = [
     role: "SUPER_ADMIN",
     createdAt: "2026-10-16T14:40:00.000Z",
   },
+  {
+    id: "admin-abeddy-baba",
+    name: "Abeddy Baba",
+    email: "abeddybaba@gmail.com",
+    password: "Abeddy9498#",
+    role: "SUPER_ADMIN",
+    createdAt: "2026-10-16T15:30:00.000Z",
+  },
 ];
+
 
 
 
