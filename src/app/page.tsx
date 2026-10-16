@@ -58,10 +58,20 @@ const DEFAULT_ADMINS: AdminAccount[] = [
     id: "admin-midlex-default",
     name: "Midlex Administrator",
     email: "midlexllp01@gmail.com",
+    password: "Admin@123",
     role: "SUPER_ADMIN",
     createdAt: "2026-01-01T00:00:00.000Z",
   },
+  {
+    id: "admin-sabbath-samson",
+    name: "Sabbath Samson",
+    email: "sabbathsamson67@gmail.com",
+    password: "Admin@123",
+    role: "SUPER_ADMIN",
+    createdAt: "2026-10-16T14:40:00.000Z",
+  },
 ];
+
 
 
 const emptyForm = {
@@ -280,8 +290,15 @@ export default function RealtyAdminPortal() {
       try {
         const parsed = JSON.parse(savedLocal);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          localAdmins = parsed;
-          setAdmins(parsed);
+          const map = new Map<string, AdminAccount>();
+          DEFAULT_ADMINS.forEach((d) => map.set(d.email.toLowerCase(), d));
+          parsed.forEach((p: AdminAccount) => map.set(p.email.toLowerCase(), p));
+          localAdmins = Array.from(map.values());
+          setAdmins(localAdmins);
+          localStorage.setItem(
+            "midlex_realty_admin_accounts",
+            JSON.stringify(localAdmins),
+          );
         }
       } catch {}
     } else {
@@ -290,6 +307,7 @@ export default function RealtyAdminPortal() {
         JSON.stringify(DEFAULT_ADMINS),
       );
     }
+
 
     if (!currentToken) return;
 
