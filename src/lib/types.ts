@@ -33,3 +33,13 @@ export type Inquiry = {
   status: string;
   createdAt: string;
 };
+
+export type AdminAccount = {
+  id: string;
+  name: string;
+  email: string;
+  password?: string;
+  role: "SUPER_ADMIN" | "ADMIN";
+  createdAt: string;
+};
+
