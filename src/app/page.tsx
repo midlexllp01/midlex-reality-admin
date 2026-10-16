@@ -173,7 +173,7 @@ export default function RealtyAdminPortal() {
 
   // Login state
   const [loginForm, setLoginForm] = useState({
-    email: "midlexllp01@gmail.com",
+    email: "",
     password: "",
   });
   const [loginLoading, setLoginLoading] = useState(false);
