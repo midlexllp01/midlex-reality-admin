@@ -8,6 +8,10 @@ import {
   Building2,
   Camera,
   Check,
+  CheckCheck,
+  ChevronLeft,
+  ChevronRight,
+  Copy,
   Edit3,
   ExternalLink,
   HelpCircle,
@@ -22,12 +26,15 @@ import {
   LogOut,
   Mail,
   MapPin,
+  MessageCircle,
   MessageSquare,
+  Phone,
   Play,
   Plus,
   RefreshCw,
   Search,
   ShieldCheck,
+  Sparkles,
   Star,
   Trash2,
   Upload,
@@ -131,6 +138,35 @@ function compressImageFile(file: File): Promise<string> {
   });
 }
 
+// Helper to auto-generate a URL slug from property title
+function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .trim()
+    .replace(/[^\w\s-]/g, "")
+    .replace(/[\s_-]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+// Helper to convert large prices into friendly readable Naira words
+function formatNairaWords(rawPrice: string | number): string {
+  const num = typeof rawPrice === "number" ? rawPrice : Number(rawPrice);
+  if (!num || isNaN(num) || num <= 0) return "";
+  if (num >= 1_000_000_000) {
+    const b = num / 1_000_000_000;
+    return `₦${num.toLocaleString()} · ${b % 1 === 0 ? b : b.toFixed(2)} Billion Naira`;
+  }
+  if (num >= 1_000_000) {
+    const m = num / 1_000_000;
+    return `₦${num.toLocaleString()} · ${m % 1 === 0 ? m : m.toFixed(2)} Million Naira`;
+  }
+  if (num >= 1_000) {
+    const k = num / 1_000;
+    return `₦${num.toLocaleString()} · ${k % 1 === 0 ? k : k.toFixed(1)} Thousand Naira`;
+  }
+  return `₦${num.toLocaleString()} Naira`;
+}
+
 export default function RealtyAdminPortal() {
   const [token, setToken] = useState<string | null>(null);
   const [adminUser, setAdminUser] = useState<any>(null);
@@ -152,11 +188,20 @@ export default function RealtyAdminPortal() {
   const [inquiries, setInquiries] = useState<Inquiry[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("ALL");
+  const [categoryFilter, setCategoryFilter] = useState("ALL");
   const [modal, setModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
+
+  // Toast notification
+  const [toast, setToast] = useState<{ message: string } | null>(null);
+  const showToast = (message: string) => {
+    setToast({ message });
+    setTimeout(() => setToast(null), 3500);
+  };
 
   // Media Manager state
   const [mediaTab, setMediaTab] = useState<"link" | "upload">("link");
@@ -282,14 +327,83 @@ export default function RealtyAdminPortal() {
     setInquiries([]);
   };
 
-  // Filter properties
+  // Filter properties with category and status chips
   const filtered = useMemo(() => {
-    return properties.filter((item) =>
-      `${item.title} ${item.location} ${item.category} ${(item.offerTypes || ["SALE"]).join(" ")}`
+    return properties.filter((item) => {
+      const matchQuery = `${item.title} ${item.location} ${item.category} ${(item.offerTypes || ["SALE"]).join(" ")}`
         .toLowerCase()
-        .includes(query.toLowerCase()),
-    );
-  }, [properties, query]);
+        .includes(query.toLowerCase());
+      if (!matchQuery) return false;
+      if (statusFilter !== "ALL" && item.status !== statusFilter) return false;
+      if (categoryFilter !== "ALL" && item.category !== categoryFilter) return false;
+      return true;
+    });
+  }, [properties, query, statusFilter, categoryFilter]);
+
+  // Quick 1-click status change
+  const togglePropertyStatus = async (item: PropertyListing, newStatus: string) => {
+    try {
+      const res = await fetch(`${API_URL}/realty/properties/${item.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      if (res.ok) {
+        setProperties((curr) =>
+          curr.map((p) => (p.id === item.id ? { ...p, status: newStatus } : p))
+        );
+        showToast(`Status updated to ${newStatus}`);
+      }
+    } catch {
+      showToast("Failed to update status");
+    }
+  };
+
+  // Quick 1-click featured toggle
+  const togglePropertyFeatured = async (item: PropertyListing) => {
+    try {
+      const nextFeatured = !item.featured;
+      const res = await fetch(`${API_URL}/realty/properties/${item.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ featured: nextFeatured }),
+      });
+      if (res.ok) {
+        setProperties((curr) =>
+          curr.map((p) => (p.id === item.id ? { ...p, featured: nextFeatured } : p))
+        );
+        showToast(nextFeatured ? "Listing set as Featured!" : "Removed from Featured");
+      }
+    } catch {
+      showToast("Failed to update featured setting");
+    }
+  };
+
+  // Copy live property link
+  const handleCopyPropertyLink = (slug: string) => {
+    const url = `${MARKETPLACE_URL}/properties/${slug}`;
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(url);
+      showToast("Live property link copied to clipboard!");
+    }
+  };
+
+  // Move image position in gallery (order)
+  const handleMoveImage = (fromIndex: number, toIndex: number) => {
+    setForm((curr) => {
+      if (toIndex < 0 || toIndex >= curr.images.length) return curr;
+      const newImages = [...curr.images];
+      const [moved] = newImages.splice(fromIndex, 1);
+      newImages.splice(toIndex, 0, moved);
+      return { ...curr, images: newImages };
+    });
+  };
 
   // Modal actions
   const openCreate = () => {
@@ -771,15 +885,90 @@ export default function RealtyAdminPortal() {
         {/* TAB 1: PROPERTIES */}
         {activeTab === "properties" && (
           <div className="mt-6">
-            {/* Search */}
-            <div className="flex max-w-md items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-              <Search size={18} className="text-slate-400" />
-              <input
-                placeholder="Search properties by title, location, type..."
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                className="w-full text-sm outline-none"
-              />
+            {/* STATS OVERVIEW CARDS */}
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 mb-6">
+              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
+                <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Total Listings</p>
+                <p className="text-3xl font-black text-[#073d22] mt-1">{properties.length}</p>
+              </div>
+              <div className="rounded-2xl border border-emerald-100 bg-emerald-50/50 p-5 shadow-xs">
+                <p className="text-xs font-bold text-emerald-800 uppercase tracking-wider">Available</p>
+                <p className="text-3xl font-black text-emerald-700 mt-1">
+                  {properties.filter((p) => p.status === "AVAILABLE").length}
+                </p>
+              </div>
+              <div className="rounded-2xl border border-amber-100 bg-amber-50/50 p-5 shadow-xs">
+                <p className="text-xs font-bold text-amber-800 uppercase tracking-wider">Featured</p>
+                <p className="text-3xl font-black text-[#a87835] mt-1">
+                  {properties.filter((p) => p.featured).length}
+                </p>
+              </div>
+              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
+                <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Client Inquiries</p>
+                <p className="text-3xl font-black text-[#073d22] mt-1">{inquiries.length}</p>
+              </div>
+            </div>
+
+            {/* SEARCH & FILTERS BAR */}
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-2xl border border-slate-200 bg-white p-3.5 shadow-xs">
+              <div className="flex flex-1 items-center gap-3 rounded-xl bg-slate-50 px-3.5 py-2.5">
+                <Search size={18} className="text-slate-400 shrink-0" />
+                <input
+                  placeholder="Search properties by title, location, category..."
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  className="w-full bg-transparent text-sm outline-none"
+                />
+                {query && (
+                  <button
+                    onClick={() => setQuery("")}
+                    className="text-xs text-slate-400 hover:text-slate-600"
+                  >
+                    <X size={16} />
+                  </button>
+                )}
+              </div>
+
+              {/* Category Filter */}
+              <div className="flex flex-wrap items-center gap-2">
+                <select
+                  value={categoryFilter}
+                  onChange={(e) => setCategoryFilter(e.target.value)}
+                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 outline-none hover:border-[#073d22] transition"
+                >
+                  <option value="ALL">All Categories</option>
+                  <option value="RESIDENTIAL">Residential</option>
+                  <option value="LUXURY">Luxury</option>
+                  <option value="LAND">Land</option>
+                  <option value="COMMERCIAL">Commercial</option>
+                </select>
+
+                {/* Status Filter */}
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 outline-none hover:border-[#073d22] transition"
+                >
+                  <option value="ALL">All Statuses</option>
+                  <option value="AVAILABLE">Available</option>
+                  <option value="RESERVED">Reserved</option>
+                  <option value="SOLD">Sold</option>
+                  <option value="OFF_MARKET">Off Market</option>
+                </select>
+
+                {(query || categoryFilter !== "ALL" || statusFilter !== "ALL") && (
+                  <button
+                    onClick={() => {
+                      setQuery("");
+                      setCategoryFilter("ALL");
+                      setStatusFilter("ALL");
+                    }}
+                    className="rounded-xl bg-slate-100 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-200 transition"
+                  >
+                    Reset
+                  </button>
+                )}
+              </div>
             </div>
 
             {loading ? (
@@ -793,23 +982,35 @@ export default function RealtyAdminPortal() {
                   No properties found
                 </h3>
                 <p className="mt-1 text-sm text-slate-500">
-                  {query
-                    ? "Try a different search query"
+                  {query || categoryFilter !== "ALL" || statusFilter !== "ALL"
+                    ? "Try adjusting your search or filters."
                     : "Post your first property listing to get started."}
                 </p>
+                {(query || categoryFilter !== "ALL" || statusFilter !== "ALL") && (
+                  <button
+                    onClick={() => {
+                      setQuery("");
+                      setCategoryFilter("ALL");
+                      setStatusFilter("ALL");
+                    }}
+                    className="mt-4 inline-block rounded-xl bg-[#073d22] px-4 py-2 text-xs font-black text-white"
+                  >
+                    Clear All Filters
+                  </button>
+                )}
               </div>
             ) : (
               <div className="mt-6 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
                 <div className="overflow-x-auto">
-                  <table className="w-full min-w-[800px] text-left">
+                  <table className="w-full min-w-[840px] text-left">
                     <thead className="bg-[#073d22] text-white">
                       <tr>
                         <th className="p-4 text-xs font-black uppercase">Property</th>
                         <th className="p-4 text-xs font-black uppercase">Price</th>
                         <th className="p-4 text-xs font-black uppercase">Type</th>
                         <th className="p-4 text-xs font-black uppercase">Media</th>
-                        <th className="p-4 text-xs font-black uppercase">Status</th>
-                        <th className="p-4 text-xs font-black uppercase">Actions</th>
+                        <th className="p-4 text-xs font-black uppercase">Status & Star</th>
+                        <th className="p-4 text-xs font-black uppercase text-right">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -844,8 +1045,10 @@ export default function RealtyAdminPortal() {
                               </div>
                             </div>
                           </td>
-                          <td className="p-4 text-sm font-black text-[#073d22]">
-                            {formatPrice(item.price)}
+                          <td className="p-4">
+                            <p className="text-sm font-black text-[#073d22]">
+                              {formatPrice(item.price)}
+                            </p>
                           </td>
                           <td className="p-4 text-xs font-bold text-slate-700">
                             {item.category}
@@ -862,39 +1065,76 @@ export default function RealtyAdminPortal() {
                             )}
                           </td>
                           <td className="p-4">
-                            <span className="rounded-full bg-emerald-50 px-3 py-1 text-[10px] font-black text-emerald-800">
-                              {item.status}
-                            </span>
-                            {item.featured && (
-                              <span className="ml-2 inline-flex items-center gap-0.5 text-[10px] font-black text-[#a87835]">
-                                <Star size={11} fill="currentColor" /> Featured
-                              </span>
-                            )}
+                            <div className="flex items-center gap-2">
+                              {/* Quick 1-click Status Selector */}
+                              <select
+                                value={item.status}
+                                onChange={(e) => togglePropertyStatus(item, e.target.value)}
+                                className={`rounded-full px-2.5 py-1 text-[11px] font-black outline-none border cursor-pointer transition ${
+                                  item.status === "AVAILABLE"
+                                    ? "bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100"
+                                    : item.status === "SOLD"
+                                    ? "bg-red-50 text-red-800 border-red-200 hover:bg-red-100"
+                                    : "bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100"
+                                }`}
+                                title="Click to change listing status"
+                              >
+                                <option value="AVAILABLE">Available</option>
+                                <option value="RESERVED">Reserved</option>
+                                <option value="SOLD">Sold</option>
+                                <option value="OFF_MARKET">Off Market</option>
+                              </select>
+
+                              {/* Quick 1-click Featured Toggle */}
+                              <button
+                                type="button"
+                                onClick={() => togglePropertyFeatured(item)}
+                                className={`rounded-lg p-1.5 transition ${
+                                  item.featured
+                                    ? "text-[#ddb849] bg-amber-50 hover:bg-amber-100"
+                                    : "text-slate-300 hover:text-amber-500 hover:bg-slate-100"
+                                }`}
+                                title={item.featured ? "Featured on homepage (click to unfeature)" : "Click to feature on homepage"}
+                              >
+                                <Star size={16} fill={item.featured ? "currentColor" : "none"} />
+                              </button>
+                            </div>
                           </td>
-                          <td className="p-4">
-                            <div className="flex gap-1.5">
+                          <td className="p-4 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              {/* Copy Live Link */}
+                              <button
+                                onClick={() => handleCopyPropertyLink(item.slug)}
+                                className="rounded-lg bg-slate-100 p-2 text-slate-600 hover:bg-slate-200 hover:text-[#073d22] transition"
+                                title="Copy public share link"
+                              >
+                                <Copy size={15} />
+                              </button>
+                              {/* View Live */}
                               <a
                                 href={`${MARKETPLACE_URL}/properties/${item.slug}`}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="rounded-lg bg-slate-100 p-2 text-slate-600 hover:bg-slate-200"
+                                className="rounded-lg bg-slate-100 p-2 text-slate-600 hover:bg-slate-200 hover:text-[#073d22] transition"
                                 title="View on live marketplace"
                               >
-                                <Eye size={16} />
+                                <ExternalLink size={15} />
                               </a>
+                              {/* Edit */}
                               <button
                                 onClick={() => openEdit(item)}
-                                className="rounded-lg bg-amber-50 p-2 text-[#a87835] hover:bg-amber-100"
+                                className="rounded-lg bg-amber-50 p-2 text-[#a87835] hover:bg-amber-100 transition"
                                 title="Edit listing"
                               >
-                                <Edit3 size={16} />
+                                <Edit3 size={15} />
                               </button>
+                              {/* Delete */}
                               <button
                                 onClick={() => removeProperty(item.id)}
-                                className="rounded-lg bg-red-50 p-2 text-red-600 hover:bg-red-100"
+                                className="rounded-lg bg-red-50 p-2 text-red-600 hover:bg-red-100 transition"
                                 title="Delete listing"
                               >
-                                <Trash2 size={16} />
+                                <Trash2 size={15} />
                               </button>
                             </div>
                           </td>
@@ -951,6 +1191,36 @@ export default function RealtyAdminPortal() {
                     <div className="mt-4 rounded-xl bg-slate-50 p-4 text-xs text-slate-700 whitespace-pre-wrap font-sans">
                       {inq.message}
                     </div>
+
+                    {/* Quick Client Actions */}
+                    <div className="mt-4 flex flex-wrap items-center gap-2 pt-3 border-t border-slate-100">
+                      {inq.phone && (
+                        <a
+                          href={`https://wa.me/${inq.phone.replace(/[^0-9]/g, "").startsWith("0") ? "234" + inq.phone.replace(/[^0-9]/g, "").slice(1) : inq.phone.replace(/[^0-9]/g, "")}?text=${encodeURIComponent(`Hello ${inq.name}, I am contacting you from Midlex Realty regarding your inspection inquiry.`)}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-700 px-3.5 py-2 text-xs font-black text-white hover:bg-emerald-800 transition shadow-xs"
+                        >
+                          <MessageCircle size={14} /> WhatsApp Client
+                        </a>
+                      )}
+                      {inq.phone && (
+                        <a
+                          href={`tel:${inq.phone}`}
+                          className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition"
+                        >
+                          <Phone size={14} className="text-[#a87835]" /> Call Client
+                        </a>
+                      )}
+                      {inq.email && (
+                        <a
+                          href={`mailto:${inq.email}?subject=${encodeURIComponent("Midlex Realty - Regarding Your Property Inquiry")}&body=${encodeURIComponent(`Hello ${inq.name},\n\nThank you for reaching out to Midlex Realty.\n\nBest regards,\nMidlex Realty Team`)}`}
+                          className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition"
+                        >
+                          <Mail size={14} className="text-[#a87835]" /> Send Email
+                        </a>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -981,19 +1251,47 @@ export default function RealtyAdminPortal() {
             </div>
 
             <form onSubmit={save} className="mt-6 grid gap-4 sm:grid-cols-2">
-              <input
-                required
-                placeholder="Property title"
-                value={form.title}
-                onChange={(e) => setForm({ ...form, title: e.target.value })}
-                className="rounded-xl border border-slate-200 p-4 text-sm sm:col-span-2 focus:border-[#073d22] outline-none"
-              />
-              <input
-                placeholder="URL slug (optional)"
-                value={form.slug}
-                onChange={(e) => setForm({ ...form, slug: e.target.value })}
-                className="rounded-xl border border-slate-200 p-4 text-sm focus:border-[#073d22] outline-none"
-              />
+              <div>
+                <input
+                  required
+                  placeholder="Property title"
+                  value={form.title}
+                  onChange={(e) => {
+                    const newTitle = e.target.value;
+                    setForm((curr) => ({
+                      ...curr,
+                      title: newTitle,
+                      slug:
+                        !editingId &&
+                        (!curr.slug || curr.slug === slugify(curr.title))
+                          ? slugify(newTitle)
+                          : curr.slug,
+                    }));
+                  }}
+                  className="w-full rounded-xl border border-slate-200 p-4 text-sm focus:border-[#073d22] outline-none"
+                />
+              </div>
+
+              {/* Slug with Auto-generate button */}
+              <div className="flex gap-2">
+                <input
+                  placeholder="URL slug (e.g. lekki-4bed-luxury-villa)"
+                  value={form.slug}
+                  onChange={(e) => setForm({ ...form, slug: e.target.value })}
+                  className="w-full rounded-xl border border-slate-200 p-4 text-sm focus:border-[#073d22] outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={() =>
+                    setForm((curr) => ({ ...curr, slug: slugify(curr.title) }))
+                  }
+                  className="shrink-0 rounded-xl border border-emerald-950/15 bg-slate-50 px-3.5 text-xs font-bold text-slate-700 hover:bg-slate-100 hover:text-[#073d22] transition"
+                  title="Auto-generate URL slug from title"
+                >
+                  <Sparkles size={14} className="text-[#a87835]" />
+                </button>
+              </div>
+
               <input
                 required
                 placeholder="Location (e.g. Lekki Phase 1, Lagos)"
@@ -1001,14 +1299,23 @@ export default function RealtyAdminPortal() {
                 onChange={(e) => setForm({ ...form, location: e.target.value })}
                 className="rounded-xl border border-slate-200 p-4 text-sm focus:border-[#073d22] outline-none"
               />
-              <input
-                required
-                type="number"
-                placeholder="Price in NGN"
-                value={form.price}
-                onChange={(e) => setForm({ ...form, price: e.target.value })}
-                className="rounded-xl border border-slate-200 p-4 text-sm focus:border-[#073d22] outline-none"
-              />
+
+              {/* Price with live Naira words helper */}
+              <div>
+                <input
+                  required
+                  type="number"
+                  placeholder="Price in NGN (e.g. 85000000)"
+                  value={form.price}
+                  onChange={(e) => setForm({ ...form, price: e.target.value })}
+                  className="w-full rounded-xl border border-slate-200 p-4 text-sm focus:border-[#073d22] outline-none"
+                />
+                {form.price && (
+                  <p className="mt-1.5 px-1 text-xs font-black text-[#a87835]">
+                    {formatNairaWords(form.price)}
+                  </p>
+                )}
+              </div>
 
               {/* Purpose checkboxes */}
               <fieldset className="rounded-xl border border-slate-200 p-4 sm:col-span-2">
@@ -1300,7 +1607,7 @@ export default function RealtyAdminPortal() {
                             <button
                               type="button"
                               onClick={() => handleSetCoverImage(idx)}
-                              className="absolute left-1 top-1 hidden group-hover:block rounded bg-black/75 px-1.5 py-0.5 text-[9px] font-bold text-white"
+                              className="absolute left-1 top-1 hidden group-hover:block rounded bg-black/75 px-1.5 py-0.5 text-[9px] font-bold text-white hover:bg-[#073d22] transition"
                             >
                               Set Cover
                             </button>
@@ -1308,10 +1615,35 @@ export default function RealtyAdminPortal() {
                           <button
                             type="button"
                             onClick={() => handleRemoveImage(idx)}
-                            className="absolute right-1 top-1 rounded-full bg-red-600/90 p-1 text-white hover:bg-red-700"
+                            className="absolute right-1 top-1 rounded-full bg-red-600/90 p-1 text-white hover:bg-red-700 transition"
+                            title="Remove photo"
                           >
                             <Trash2 size={12} />
                           </button>
+
+                          {/* Reorder Arrows */}
+                          <div className="absolute bottom-1 left-1 flex items-center gap-1 opacity-90 group-hover:opacity-100 transition">
+                            {idx > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => handleMoveImage(idx, idx - 1)}
+                                className="rounded bg-black/75 p-1 text-white hover:bg-[#073d22] transition"
+                                title="Move photo left"
+                              >
+                                <ChevronLeft size={11} />
+                              </button>
+                            )}
+                            {idx < form.images.length - 1 && (
+                              <button
+                                type="button"
+                                onClick={() => handleMoveImage(idx, idx + 1)}
+                                className="rounded bg-black/75 p-1 text-white hover:bg-[#073d22] transition"
+                                title="Move photo right"
+                              >
+                                <ChevronRight size={11} />
+                              </button>
+                            )}
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -1676,6 +2008,14 @@ export default function RealtyAdminPortal() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* FLOATING TOAST NOTIFICATION */}
+      {toast && (
+        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 rounded-2xl bg-[#073d22] px-5 py-3.5 text-xs font-bold text-white shadow-2xl border border-emerald-800 transition">
+          <CheckCheck size={17} className="text-[#ddb849]" />
+          <span>{toast.message}</span>
         </div>
       )}
     </div>
