@@ -648,6 +648,7 @@ export default function RealtyAdminPortal() {
   const handleLogout = () => {
     localStorage.removeItem("midlex_realty_admin_token");
     localStorage.removeItem("midlex_realty_admin_user");
+    window.location.assign("/login");
     setToken(null);
     setAdminUser(null);
     setProperties([]);
