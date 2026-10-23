@@ -51,7 +51,7 @@ import { PropertyListing, Inquiry, AdminAccount } from "@/lib/types";
 import PropertyVideoPlayer from "@/components/PropertyVideoPlayer";
 
 const MARKETPLACE_URL =
-  process.env.NEXT_PUBLIC_MARKETPLACE_URL || "https://midlex-reality.vercel.app";
+  process.env.NEXT_PUBLIC_MARKETPLACE_URL || "https://reality.midlex.xyz";
 
 const DEFAULT_ADMINS: AdminAccount[] = [
   {
@@ -561,7 +561,7 @@ export default function RealtyAdminPortal() {
       ...newAdminObj,
       rawPassword: adminForm.password.trim(),
     });
-    const credText = `MIDLEX REALTY ADMIN CREDENTIALS\nName: ${newAdminObj.name}\nEmail: ${newAdminObj.email}\nPassword: ${adminForm.password.trim()}\nRole: ${newAdminObj.role}\nAdmin Portal: https://midlex-reality-admin.vercel.app`;
+    const credText = `MIDLEX REALTY ADMIN CREDENTIALS\nName: ${newAdminObj.name}\nEmail: ${newAdminObj.email}\nPassword: ${adminForm.password.trim()}\nRole: ${newAdminObj.role}\nAdmin Portal: https://admin.reality.midlex.xyz`;
     try {
       await navigator.clipboard.writeText(credText);
       showToast(`Admin account created & credentials copied to clipboard!`);
@@ -634,7 +634,7 @@ export default function RealtyAdminPortal() {
   // Copy Admin Credentials
   const handleCopyAdminCredentials = async (admin: AdminAccount) => {
     const pwd = admin.password || "Admin@123";
-    const text = `MIDLEX REALTY ADMIN LOGIN\nName: ${admin.name}\nEmail: ${admin.email}\nPassword: ${pwd}\nRole: ${admin.role}\nAdmin Portal: https://midlex-reality-admin.vercel.app`;
+    const text = `MIDLEX REALTY ADMIN LOGIN\nName: ${admin.name}\nEmail: ${admin.email}\nPassword: ${pwd}\nRole: ${admin.role}\nAdmin Portal: https://admin.reality.midlex.xyz`;
     try {
       await navigator.clipboard.writeText(text);
       setCopiedAdminId(admin.id);
@@ -1033,7 +1033,7 @@ export default function RealtyAdminPortal() {
               </p>
             </div>
             <p className="text-xs text-emerald-100/45">
-              midlex-reality-admin.vercel.app · Midlex Security
+              admin.reality.midlex.xyz · Midlex Security
             </p>
           </div>
         </section>
