@@ -645,14 +645,19 @@ export default function RealtyAdminPortal() {
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem("midlex_realty_admin_token");
-    localStorage.removeItem("midlex_realty_admin_user");
-    window.location.assign("/login");
+  const handleLogout = async () => {
+    const destination = localStorage.getItem('midlex_workspace_return');
+    if (destination) {
+      try { const response = await fetch('/api/sso', { method: 'DELETE' }); if (!response.ok) throw new Error('Unable to sign out'); }
+      catch { window.alert('Unable to sign out. Please try again.'); return; }
+    }
+    for (const key of ['midlex_realty_admin_token', 'midlex_realty_admin_user', 'midlex_token', 'midlex_user', 'midlex_workspace_return']) localStorage.removeItem(key);
     setToken(null);
     setAdminUser(null);
     setProperties([]);
     setInquiries([]);
+    if (destination && ['https://staff.midlex.xyz', 'https://admin.midlex.xyz', 'https://developer.midlex.xyz'].includes(destination)) window.location.assign(destination);
+    else window.location.assign('/login');
   };
 
 

@@ -9,9 +9,16 @@ export default function WorkspaceSignIn() {
     window.history.replaceState(null, '', '/sso');
     async function exchange() {
       try {
-        const response = await fetch('/api/sso', code ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code }) } : { cache: 'no-store' });
-        const data = await response.json(); setWorkspace(data.workspaceUrl || '');
+        let response = await fetch('/api/sso', code ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code }) } : { cache: 'no-store' });
+        let data = await response.json();
+        const fresh = !!code && response.ok;
+        if (!response.ok && code) {
+          const existing = await fetch('/api/sso', { cache: 'no-store' });
+          if (existing.ok) { response = existing; data = await existing.json(); }
+        }
+        setWorkspace(data.workspaceUrl || '');
         if (!response.ok) throw new Error(data.message || 'The project link has expired. Open it again from your workspace.');
+        if (fresh && ['https://staff.midlex.xyz', 'https://admin.midlex.xyz', 'https://developer.midlex.xyz'].includes(data.workspaceUrl)) localStorage.setItem('midlex_workspace_return', data.workspaceUrl);
         const user = data.user; const admin = data.access === 'ADMIN';
         localStorage.setItem('midlex_token', data.token); localStorage.setItem('midlex_user', JSON.stringify(user));
         // Compatibility adapters preserve existing project components and data stores.

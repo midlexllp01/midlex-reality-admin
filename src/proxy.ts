@@ -12,7 +12,7 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL(workspaceUrl));
   }
   try {
-    const response = await fetch(`${apiUrl}/workspace/introspect`, { method: 'POST', cache: 'no-store', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ project: projectId }), signal: AbortSignal.timeout(15000) });
+    const response = await fetch(`${apiUrl}/workspace/introspect`, { method: 'POST', cache: 'no-store', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ project: projectId }), signal: AbortSignal.timeout(45000) });
     if (!response.ok) {
       if (response.status >= 500) return new NextResponse('The workspace service is unavailable. Please try again.', { status: 503 });
       const redirect = NextResponse.redirect(new URL(workspaceUrl)); redirect.cookies.delete(cookieName); return redirect;
@@ -24,7 +24,9 @@ export async function proxy(request: NextRequest) {
       redirect.cookies.delete(cookieName);
       return redirect;
     }
-    return NextResponse.next();
+    const next = NextResponse.next();
+    next.cookies.set(cookieName, token, { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', path: '/', maxAge: 60 * 60 * 24 * 400 });
+    return next;
   } catch { return new NextResponse('Unable to validate your workspace access. Please try again.', { status: 503 }); }
 }
 export const config = { matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'] };
